@@ -278,24 +278,25 @@
     .cifra-render {
       font-family: var(--font-mono);
       line-height: 1;
-      white-space: pre;
     }
     .cifra-render.duas-colunas {
       columns: 2;
-      column-gap: 40px;
+      column-gap: 32px;
     }
     .linha-acorde {
       color: var(--chord);
       font-weight: 500;
       display: block;
-      white-space: pre;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .linha-letra {
       color: var(--text);
       font-weight: 300;
       display: block;
       margin-bottom: 4px;
-      white-space: pre;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .linha-secao {
       color: var(--accent2);
@@ -304,7 +305,7 @@
       display: block;
       margin-top: 12px;
       margin-bottom: 4px;
-      white-space: pre;
+      white-space: pre-wrap;
     }
     .linha-vazia { display: block; height: 10px; }
 
@@ -387,7 +388,10 @@
       <div class="header-titulo">CifraSet</div>
       <div class="header-sub">seu repertório</div>
     </div>
-    <button class="btn btn-accent" onclick="abrirModalNova()">+ Nova cifra</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="mostrarTela('tela-playlists')">📁 Pastas</button>
+      <button class="btn btn-accent" onclick="abrirModalNova()">+ Nova cifra</button>
+    </div>
   </div>
 
   <div class="busca-wrap">
@@ -461,6 +465,74 @@
   <button class="btn btn-sm" onclick="mudarFontePalco(+2)">A+</button>
   <button class="btn btn-sm" id="btn-rolagem-palco" onclick="toggleRolagem()">▶</button>
   <button class="btn btn-sm btn-danger" onclick="sairPalco()">✕ Sair</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TELA 3: PLAYLISTS
+══════════════════════════════════════════ -->
+<div class="tela" id="tela-playlists">
+  <div class="header">
+    <button class="btn btn-icon" onclick="mostrarTela('tela-lista')">←</button>
+    <div style="flex:1">
+      <div class="header-titulo">Pastas</div>
+      <div class="header-sub">organize seu repertório</div>
+    </div>
+    <button class="btn btn-accent" onclick="abrirModalPlaylist(null)">+ Nova pasta</button>
+  </div>
+  <div class="lista-scroll" id="lista-playlists"></div>
+</div>
+
+<!-- TELA 4: CIFRAS DE UMA PLAYLIST -->
+<div class="tela" id="tela-playlist-cifras">
+  <div class="header">
+    <button class="btn btn-icon" onclick="mostrarTela('tela-playlists')">←</button>
+    <div style="flex:1;min-width:0">
+      <div id="playlist-titulo-view" style="font-size:15px;font-weight:500"></div>
+      <div id="playlist-count-view" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-icon" onclick="abrirModalPlaylist(playlistAtual)" title="Renomear">✏️</button>
+      <button class="btn btn-icon btn-danger" onclick="deletarPlaylist()" title="Excluir pasta">🗑</button>
+    </div>
+  </div>
+  <div class="lista-scroll" id="lista-playlist-cifras"></div>
+</div>
+
+<!-- MODAL: NOVA / EDITAR PLAYLIST -->
+<div class="modal-overlay" id="modal-playlist-overlay">
+  <div class="modal" style="max-height:320px">
+    <div class="modal-header">
+      <span class="modal-titulo" id="modal-playlist-label">Nova pasta</span>
+      <button class="btn btn-icon" onclick="fecharModalPlaylist()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="campo-grupo">
+        <label>Nome da pasta</label>
+        <input type="text" id="campo-playlist-nome" placeholder="Ex: Show de Sábado, MPB, Forró..." />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModalPlaylist()">Cancelar</button>
+      <button class="btn btn-accent" onclick="salvarPlaylist()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADICIONAR CIFRA À PLAYLIST -->
+<div class="modal-overlay" id="modal-add-cifra-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-titulo">Adicionar cifra à pasta</span>
+      <button class="btn btn-icon" onclick="fecharModalAddCifra()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:10px 20px">
+      <input class="busca-input" id="busca-add-cifra" type="text" placeholder="Buscar cifra..." oninput="renderModalAddCifra()" style="margin-bottom:12px"/>
+      <div id="lista-add-cifra" style="display:flex;flex-direction:column;gap:8px;max-height:50dvh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModalAddCifra()">Fechar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -562,7 +634,8 @@ function salvarDados() {
 // ══════════════════════════════════════════
 const NOTAS_S  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTAS_B  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const REGEX_ACORDE = /\b([A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add)?(?:2|4|5|6|7|9|11|13)?(?:maj7|maj9|m7|m9|7sus4|sus4|sus2|dim7|aug7)?)\b/g;
+// Reconhece: Am, G7, F#m, Bb, E/G#, A#°, Bm7, Csus4, D/F#, etc.
+const REGEX_ACORDE = /\b([A-G](?:#|b)?(?:maj7|maj9|maj|min7|min|m7b5|m7|m9|m|dim7|dim|aug7|aug|sus4|sus2|sus|add9|add)?(?:\d{0,2})?)(?:\/[A-G](?:#|b)?)?[°ø]?\b/g;
 
 function indexNota(nota) {
   let i = NOTAS_S.indexOf(nota);
@@ -603,8 +676,8 @@ function ehLinhaAcorde(linha) {
   if (!l) return false;
   // Seção não é acorde
   if (l.startsWith('[') && l.endsWith(']')) return false;
-  // Remove todos os acordes e espaços — se sobrar só espaço/traço, é linha de acorde
-  const semAcordes = l.replace(REGEX_ACORDE, '').replace(/[\s\-|\/]+/g, '');
+  // Remove acordes, espaços, traços, barras, grau (°) — se não sobrar nada, é linha de acorde
+  const semAcordes = l.replace(REGEX_ACORDE, '').replace(/[\s\-|\/°ø]+/g, '');
   return semAcordes.length === 0 && REGEX_ACORDE.test(l);
 }
 
@@ -892,9 +965,175 @@ function toast(msg) {
 }
 
 // ══════════════════════════════════════════
+// PLAYLISTS
+// ══════════════════════════════════════════
+let playlists = JSON.parse(localStorage.getItem('cifraset_playlists') || '[]');
+let playlistAtual = null;
+let editandoPlaylistId = null;
+
+function salvarPlaylists() {
+  localStorage.setItem('cifraset_playlists', JSON.stringify(playlists));
+}
+
+function renderPlaylists() {
+  const lista = document.getElementById('lista-playlists');
+  if (playlists.length === 0) {
+    lista.innerHTML = `<div class="lista-vazia">
+      <div class="icone">📁</div>
+      <p>Nenhuma pasta ainda.<br>Crie uma pasta para organizar seu repertório.</p>
+    </div>`;
+    return;
+  }
+  lista.innerHTML = playlists.map(p => {
+    const qtd = (p.cifras || []).length;
+    return `<div class="cifra-card" onclick="abrirPlaylist('${p.id}')">
+      <div class="cifra-card-info">
+        <div class="cifra-titulo">📁 ${escHtml(p.nome)}</div>
+        <div class="cifra-meta">${qtd} música${qtd !== 1 ? 's' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirPlaylist(id) {
+  playlistAtual = playlists.find(p => p.id === id);
+  if (!playlistAtual) return;
+  renderPlaylistCifras();
+  mostrarTela('tela-playlist-cifras');
+}
+
+function renderPlaylistCifras() {
+  document.getElementById('playlist-titulo-view').textContent = '📁 ' + playlistAtual.nome;
+  const ids = playlistAtual.cifras || [];
+  document.getElementById('playlist-count-view').textContent = ids.length + ' música' + (ids.length !== 1 ? 's' : '');
+  const lista = document.getElementById('lista-playlist-cifras');
+  const cifsNaLista = ids.map(id => cifras.find(c => c.id === id)).filter(Boolean);
+
+  let html = `<div style="padding:12px 20px 4px">
+    <button class="btn" style="width:100%" onclick="abrirModalAddCifra()">+ Adicionar música</button>
+  </div>`;
+
+  if (cifsNaLista.length === 0) {
+    html += `<div class="lista-vazia" style="height:200px">
+      <p>Nenhuma música nesta pasta ainda.</p>
+    </div>`;
+  } else {
+    html += cifsNaLista.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;padding:0 20px 0 20px;margin-bottom:8px">
+        <div class="cifra-card" style="flex:1;margin-bottom:0" onclick="abrirCifra('${c.id}')">
+          <div class="cifra-card-info">
+            <div class="cifra-titulo">${escHtml(c.titulo)}</div>
+            <div class="cifra-meta">${escHtml(c.artista || '—')}</div>
+          </div>
+          ${c.tom ? `<span class="cifra-tom">${escHtml(c.tom)}</span>` : ''}
+        </div>
+        <button class="btn btn-icon btn-danger" onclick="removerDaPlaylist('${c.id}')" title="Remover da pasta">✕</button>
+      </div>
+    `).join('');
+  }
+  lista.innerHTML = html;
+}
+
+function removerDaPlaylist(cifraId) {
+  playlistAtual.cifras = (playlistAtual.cifras || []).filter(id => id !== cifraId);
+  salvarPlaylists();
+  renderPlaylistCifras();
+  toast('Música removida da pasta.');
+}
+
+// Modal nova/editar playlist
+function abrirModalPlaylist(playlist) {
+  editandoPlaylistId = playlist ? playlist.id : null;
+  document.getElementById('modal-playlist-label').textContent = playlist ? 'Renomear pasta' : 'Nova pasta';
+  document.getElementById('campo-playlist-nome').value = playlist ? playlist.nome : '';
+  document.getElementById('modal-playlist-overlay').classList.add('aberto');
+  setTimeout(() => document.getElementById('campo-playlist-nome').focus(), 100);
+}
+
+function fecharModalPlaylist() {
+  document.getElementById('modal-playlist-overlay').classList.remove('aberto');
+}
+
+function salvarPlaylist() {
+  const nome = document.getElementById('campo-playlist-nome').value.trim();
+  if (!nome) { toast('Digite o nome da pasta'); return; }
+  if (editandoPlaylistId) {
+    const p = playlists.find(p => p.id === editandoPlaylistId);
+    if (p) { p.nome = nome; if (playlistAtual) playlistAtual.nome = nome; }
+  } else {
+    playlists.push({ id: Date.now().toString(), nome, cifras: [] });
+  }
+  salvarPlaylists();
+  fecharModalPlaylist();
+  renderPlaylists();
+  if (editandoPlaylistId && playlistAtual) renderPlaylistCifras();
+  toast(editandoPlaylistId ? 'Pasta renomeada!' : 'Pasta criada!');
+}
+
+function deletarPlaylist() {
+  if (!playlistAtual) return;
+  if (!confirm('Excluir a pasta "' + playlistAtual.nome + '"? As cifras não serão apagadas.')) return;
+  playlists = playlists.filter(p => p.id !== playlistAtual.id);
+  salvarPlaylists();
+  playlistAtual = null;
+  renderPlaylists();
+  mostrarTela('tela-playlists');
+  toast('Pasta excluída.');
+}
+
+// Modal adicionar cifra à playlist
+function abrirModalAddCifra() {
+  document.getElementById('busca-add-cifra').value = '';
+  renderModalAddCifra();
+  document.getElementById('modal-add-cifra-overlay').classList.add('aberto');
+}
+
+function fecharModalAddCifra() {
+  document.getElementById('modal-add-cifra-overlay').classList.remove('aberto');
+}
+
+function renderModalAddCifra() {
+  const q = document.getElementById('busca-add-cifra').value.toLowerCase();
+  const jaAdicionadas = new Set(playlistAtual.cifras || []);
+  const filtradas = cifras.filter(c =>
+    (c.titulo.toLowerCase().includes(q) || (c.artista||'').toLowerCase().includes(q))
+  );
+  const lista = document.getElementById('lista-add-cifra');
+  if (filtradas.length === 0) {
+    lista.innerHTML = '<p style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Nenhuma cifra encontrada.</p>';
+    return;
+  }
+  lista.innerHTML = filtradas.map(c => {
+    const jaEsta = jaAdicionadas.has(c.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:var(--radius-sm)">
+      <div>
+        <div style="font-size:14px;font-weight:500">${escHtml(c.titulo)}</div>
+        <div style="font-size:12px;color:var(--muted)">${escHtml(c.artista||'—')}</div>
+      </div>
+      ${jaEsta
+        ? `<button class="btn btn-sm" disabled style="opacity:0.4">Adicionado</button>`
+        : `<button class="btn btn-sm btn-accent" onclick="adicionarNaPlaylist('${c.id}')">+ Adicionar</button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+function adicionarNaPlaylist(cifraId) {
+  if (!playlistAtual.cifras) playlistAtual.cifras = [];
+  if (!playlistAtual.cifras.includes(cifraId)) {
+    playlistAtual.cifras.push(cifraId);
+    salvarPlaylists();
+    renderModalAddCifra();
+    renderPlaylistCifras();
+    toast('Música adicionada à pasta!');
+  }
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 renderLista();
+renderPlaylists();
 </script>
 </body>
 </html>
