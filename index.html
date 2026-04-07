@@ -241,6 +241,41 @@
 
     /* ── TELA DE VISUALIZAÇÃO ── */
     #tela-cifra .header { background: var(--bg); }
+    /* Barra de navegação playlist (anterior / próximo) */
+    .nav-playlist {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--bg2);
+      border-bottom: 0.5px solid var(--border);
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .nav-playlist.visivel { display: flex; }
+    .nav-playlist-info {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-nav { padding: 8px 20px; font-size: 18px; font-weight: 500; }
+    /* Drag handle na lista de playlist */
+    .drag-handle {
+      color: var(--muted);
+      font-size: 18px;
+      padding: 8px 4px;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    .playlist-item { display: flex; align-items: center; gap: 8px; padding: 0 20px; margin-bottom: 8px; }
+    .playlist-item.dragging { opacity: 0.4; }
+    .playlist-item.drag-over { border-top: 2px solid var(--accent); }
     .cifra-controles {
       display: flex;
       align-items: center;
@@ -295,8 +330,18 @@
       font-weight: 300;
       display: block;
       margin-bottom: 4px;
-      white-space: pre-wrap;
-      word-break: break-word;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Bloco acorde+letra que nunca quebra entre colunas */
+    .bloco-par {
+      display: block;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .bloco-par .linha-letra {
+      margin-bottom: 4px;
     }
     .linha-secao {
       color: var(--accent2);
@@ -408,7 +453,7 @@
 ══════════════════════════════════════════ -->
 <div class="tela" id="tela-cifra">
   <div class="header">
-    <button class="btn btn-icon" onclick="voltarLista()">←</button>
+    <button class="btn btn-icon" onclick="voltarDaCifra()">←</button>
     <div style="flex:1;min-width:0">
       <div id="cifra-titulo-view" style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="cifra-artista-view" style="font-size:12px;color:var(--muted)"></div>
@@ -417,6 +462,13 @@
       <button class="btn btn-icon" onclick="abrirEditar()" title="Editar">✏️</button>
       <button class="btn btn-icon" onclick="ativarPalco()" title="Modo palco">🎸</button>
     </div>
+  </div>
+
+  <!-- Barra anterior / próximo — aparece só quando vem de uma playlist -->
+  <div class="nav-playlist" id="nav-playlist">
+    <button class="btn btn-nav" id="btn-anterior" onclick="navegarPlaylist(-1)">‹</button>
+    <span class="nav-playlist-info" id="nav-playlist-info"></span>
+    <button class="btn btn-nav" id="btn-proximo" onclick="navegarPlaylist(+1)">›</button>
   </div>
 
   <div class="cifra-controles">
@@ -464,6 +516,8 @@
   <button class="btn btn-sm" onclick="mudarFontePalco(-2)">A−</button>
   <button class="btn btn-sm" onclick="mudarFontePalco(+2)">A+</button>
   <button class="btn btn-sm" id="btn-rolagem-palco" onclick="toggleRolagem()">▶</button>
+  <button class="btn btn-sm" id="btn-anterior-palco" onclick="navegarPlaylist(-1)" style="display:none">‹ Ant</button>
+  <button class="btn btn-sm" id="btn-proximo-palco" onclick="navegarPlaylist(+1)" style="display:none">Próx ›</button>
   <button class="btn btn-sm btn-danger" onclick="sairPalco()">✕ Sair</button>
 </div>
 
@@ -634,8 +688,8 @@ function salvarDados() {
 // ══════════════════════════════════════════
 const NOTAS_S  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTAS_B  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-// Reconhece: Am, G7, F#m, Bb, E/G#, A#°, Bm7, Csus4, D/F#, etc.
-const REGEX_ACORDE = /\b([A-G](?:#|b)?(?:maj7|maj9|maj|min7|min|m7b5|m7|m9|m|dim7|dim|aug7|aug|sus4|sus2|sus|add9|add)?(?:\d{0,2})?)(?:\/[A-G](?:#|b)?)?[°ø]?\b/g;
+// Reconhece acordes: C, Am, G7, F#m, Bb, E/G#, A#°, Bm7, Csus4, D/F#, etc.
+const REGEX_ACORDE = /\b[A-G](?:#|b)?(?:m(?:aj)?|maj|dim|aug|sus|add)?(?:\d{0,2})?(?:\/[A-G](?:#|b)?)?[°ø]?(?=\s|$|\b)/g;
 
 function indexNota(nota) {
   let i = NOTAS_S.indexOf(nota);
@@ -674,11 +728,12 @@ function calcularTomAtual() {
 function ehLinhaAcorde(linha) {
   const l = linha.trim();
   if (!l) return false;
-  // Seção não é acorde
   if (l.startsWith('[') && l.endsWith(']')) return false;
-  // Remove acordes, espaços, traços, barras, grau (°) — se não sobrar nada, é linha de acorde
-  const semAcordes = l.replace(REGEX_ACORDE, '').replace(/[\s\-|\/°ø]+/g, '');
-  return semAcordes.length === 0 && REGEX_ACORDE.test(l);
+  // Testa se cada "palavra" da linha é um acorde válido
+  const tokens = l.split(/\s+/);
+  if (tokens.length === 0) return false;
+  const TESTE = /^[A-G](?:#|b)?(?:m(?:aj)?|maj|dim|aug|sus|add)?(?:\d{0,2})?(?:\/[A-G](?:#|b)?)?[°ø]?$/;
+  return tokens.every(t => t === '' || TESTE.test(t)) && tokens.some(t => TESTE.test(t));
 }
 
 function ehSecao(linha) {
@@ -692,16 +747,29 @@ function ehSecao(linha) {
 function renderizarCifra(texto, delta) {
   const linhas = texto.split('\n');
   let html = '';
-  for (let linha of linhas) {
+  let i = 0;
+  while (i < linhas.length) {
+    const linha = linhas[i];
     if (!linha.trim()) {
       html += '<span class="linha-vazia"></span>';
+      i++;
     } else if (ehSecao(linha)) {
       html += `<span class="linha-secao">${escHtml(linha)}</span>`;
+      i++;
     } else if (ehLinhaAcorde(linha)) {
       const transposta = transporLinha(linha, delta);
-      html += `<span class="linha-acorde">${escHtml(transposta)}</span>`;
+      const proxima = linhas[i + 1];
+      // Agrupa acorde+letra num bloco que não quebra entre colunas
+      if (proxima !== undefined && proxima.trim() !== '' && !ehLinhaAcorde(proxima) && !ehSecao(proxima)) {
+        html += `<span class="bloco-par"><span class="linha-acorde">${escHtml(transposta)}</span><span class="linha-letra">${escHtml(proxima)}</span></span>`;
+        i += 2;
+      } else {
+        html += `<span class="linha-acorde">${escHtml(transposta)}</span>`;
+        i++;
+      }
     } else {
       html += `<span class="linha-letra">${escHtml(linha)}</span>`;
+      i++;
     }
   }
   return html;
@@ -747,7 +815,11 @@ function renderLista() {
 // ══════════════════════════════════════════
 // ABRIR CIFRA
 // ══════════════════════════════════════════
-function abrirCifra(id) {
+// contexto de playlist ao navegar cifras
+let playlistContexto = null; // playlist de onde a cifra foi aberta
+let playlistIndexAtual = -1;
+
+function abrirCifra(id, playlistCtx) {
   cifraAtual = cifras.find(c => c.id === id);
   if (!cifraAtual) return;
   tomDeslocamento = 0;
@@ -755,8 +827,76 @@ function abrirCifra(id) {
   bpmAtual = cifraAtual.bpm || 120;
   duasColunas = false;
   pararRolagem();
+  // Contexto de playlist
+  playlistContexto = playlistCtx || null;
+  if (playlistContexto) {
+    const ids = playlistContexto.cifras || [];
+    playlistIndexAtual = ids.indexOf(id);
+  } else {
+    playlistIndexAtual = -1;
+  }
   atualizarViewCifra();
+  atualizarNavPlaylist();
   mostrarTela('tela-cifra');
+}
+
+function atualizarNavPlaylist() {
+  const nav = document.getElementById('nav-playlist');
+  const info = document.getElementById('nav-playlist-info');
+  const btnAnt = document.getElementById('btn-anterior');
+  const btnProx = document.getElementById('btn-proximo');
+  const btnAntP = document.getElementById('btn-anterior-palco');
+  const btnProxP = document.getElementById('btn-proximo-palco');
+
+  if (!playlistContexto || playlistIndexAtual === -1) {
+    nav.classList.remove('visivel');
+    btnAntP.style.display = 'none';
+    btnProxP.style.display = 'none';
+    return;
+  }
+  const ids = playlistContexto.cifras || [];
+  const total = ids.length;
+  const pos = playlistIndexAtual + 1;
+  nav.classList.add('visivel');
+  info.textContent = `📁 ${playlistContexto.nome}  ·  ${pos} / ${total}`;
+  btnAnt.disabled = playlistIndexAtual === 0;
+  btnProx.disabled = playlistIndexAtual === total - 1;
+  btnAntP.style.display = total > 1 ? 'inline-flex' : 'none';
+  btnProxP.style.display = total > 1 ? 'inline-flex' : 'none';
+}
+
+function navegarPlaylist(delta) {
+  if (!playlistContexto) return;
+  const ids = playlistContexto.cifras || [];
+  const novoIdx = playlistIndexAtual + delta;
+  if (novoIdx < 0 || novoIdx >= ids.length) return;
+  pararRolagem();
+  const novoId = ids[novoIdx];
+  cifraAtual = cifras.find(c => c.id === novoId);
+  if (!cifraAtual) return;
+  tomDeslocamento = 0;
+  fonteAtual = cifraAtual.fonte || 16;
+  bpmAtual = cifraAtual.bpm || 120;
+  duasColunas = false;
+  playlistIndexAtual = novoIdx;
+  atualizarViewCifra();
+  atualizarNavPlaylist();
+  document.querySelector('.cifra-corpo').scrollTop = 0;
+}
+
+function voltarDaCifra() {
+  pararRolagem();
+  sairPalco();
+  if (playlistContexto) {
+    playlistAtual = playlistContexto;
+    playlistContexto = null;
+    renderPlaylistCifras();
+    mostrarTela('tela-playlist-cifras');
+  } else {
+    cifraAtual = null;
+    renderLista();
+    mostrarTela('tela-lista');
+  }
 }
 
 function atualizarViewCifra() {
@@ -950,6 +1090,7 @@ function voltarLista() {
   pararRolagem();
   sairPalco();
   cifraAtual = null;
+  playlistContexto = null;
   renderLista();
   mostrarTela('tela-lista');
 }
@@ -1017,21 +1158,126 @@ function renderPlaylistCifras() {
     html += `<div class="lista-vazia" style="height:200px">
       <p>Nenhuma música nesta pasta ainda.</p>
     </div>`;
-  } else {
-    html += cifsNaLista.map(c => `
-      <div style="display:flex;align-items:center;gap:8px;padding:0 20px 0 20px;margin-bottom:8px">
-        <div class="cifra-card" style="flex:1;margin-bottom:0" onclick="abrirCifra('${c.id}')">
-          <div class="cifra-card-info">
-            <div class="cifra-titulo">${escHtml(c.titulo)}</div>
-            <div class="cifra-meta">${escHtml(c.artista || '—')}</div>
-          </div>
-          ${c.tom ? `<span class="cifra-tom">${escHtml(c.tom)}</span>` : ''}
-        </div>
-        <button class="btn btn-icon btn-danger" onclick="removerDaPlaylist('${c.id}')" title="Remover da pasta">✕</button>
-      </div>
-    `).join('');
+    lista.innerHTML = html;
+    return;
   }
+
+  html += `<div id="playlist-sortable">` + cifsNaLista.map((c, idx) => `
+    <div class="playlist-item" data-id="${c.id}" data-idx="${idx}">
+      <span class="drag-handle" title="Arrastar para reordenar">⠿</span>
+      <div class="cifra-card" style="flex:1;margin-bottom:0" onclick="abrirCifra('${c.id}', playlistAtual)">
+        <div style="font-size:11px;color:var(--muted);min-width:18px;font-family:var(--font-mono)">${idx+1}</div>
+        <div class="cifra-card-info">
+          <div class="cifra-titulo">${escHtml(c.titulo)}</div>
+          <div class="cifra-meta">${escHtml(c.artista || '—')}</div>
+        </div>
+        ${c.tom ? `<span class="cifra-tom">${escHtml(c.tom)}</span>` : ''}
+      </div>
+      <button class="btn btn-icon btn-danger" onclick="removerDaPlaylist('${c.id}')" title="Remover da pasta">✕</button>
+    </div>
+  `).join('') + `</div>`;
+
   lista.innerHTML = html;
+  iniciarDragDrop();
+}
+
+// ── DRAG & DROP para reordenar playlist ──
+let dragSrc = null;
+
+function iniciarDragDrop() {
+  const container = document.getElementById('playlist-sortable');
+  if (!container) return;
+  const items = container.querySelectorAll('.playlist-item');
+
+  items.forEach(item => {
+    const handle = item.querySelector('.drag-handle');
+
+    // Touch (mobile/tablet)
+    handle.addEventListener('touchstart', onTouchStart, { passive: true });
+
+    // Mouse (desktop)
+    item.addEventListener('dragstart', onDragStart);
+    item.addEventListener('dragover', onDragOver);
+    item.addEventListener('drop', onDrop);
+    item.addEventListener('dragend', onDragEnd);
+    item.setAttribute('draggable', 'true');
+  });
+
+  // ── Touch drag ──
+  let touchItem = null, touchClone = null, touchStartY = 0;
+
+  function onTouchStart(e) {
+    touchItem = this.closest('.playlist-item');
+    touchStartY = e.touches[0].clientY;
+    touchItem.classList.add('dragging');
+
+    touchClone = touchItem.cloneNode(true);
+    touchClone.style.cssText = `position:fixed;left:${touchItem.getBoundingClientRect().left}px;width:${touchItem.offsetWidth}px;opacity:0.85;pointer-events:none;z-index:999;background:var(--bg3);border-radius:var(--radius);`;
+    document.body.appendChild(touchClone);
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }
+
+  function onTouchMove(e) {
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    touchClone.style.top = (touchItem.getBoundingClientRect().top + (y - touchStartY)) + 'px';
+
+    const under = document.elementFromPoint(e.touches[0].clientX, y);
+    const overItem = under?.closest('.playlist-item');
+    if (overItem && overItem !== touchItem) {
+      container.querySelectorAll('.playlist-item').forEach(i => i.classList.remove('drag-over'));
+      overItem.classList.add('drag-over');
+    }
+  }
+
+  function onTouchEnd(e) {
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onTouchEnd);
+    touchItem.classList.remove('dragging');
+    touchClone.remove();
+
+    const overItem = container.querySelector('.drag-over');
+    if (overItem && overItem !== touchItem) {
+      reordenarPlaylist(touchItem.dataset.id, overItem.dataset.id);
+    }
+    container.querySelectorAll('.playlist-item').forEach(i => i.classList.remove('drag-over'));
+  }
+
+  // ── Mouse drag ──
+  function onDragStart(e) {
+    dragSrc = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function onDragOver(e) {
+    e.preventDefault();
+    container.querySelectorAll('.playlist-item').forEach(i => i.classList.remove('drag-over'));
+    this.classList.add('drag-over');
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    if (dragSrc && dragSrc !== this) {
+      reordenarPlaylist(dragSrc.dataset.id, this.dataset.id);
+    }
+  }
+  function onDragEnd() {
+    container.querySelectorAll('.playlist-item').forEach(i => {
+      i.classList.remove('dragging', 'drag-over');
+    });
+  }
+}
+
+function reordenarPlaylist(srcId, tgtId) {
+  const ids = playlistAtual.cifras;
+  const srcIdx = ids.indexOf(srcId);
+  const tgtIdx = ids.indexOf(tgtId);
+  if (srcIdx === -1 || tgtIdx === -1) return;
+  ids.splice(srcIdx, 1);
+  ids.splice(tgtIdx, 0, srcId);
+  salvarPlaylists();
+  renderPlaylistCifras();
 }
 
 function removerDaPlaylist(cifraId) {
