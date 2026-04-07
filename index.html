@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>CifraSet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:       #0f0f0f;
+      --bg2:      #181818;
+      --bg3:      #222222;
+      --border:   #2e2e2e;
+      --text:     #e8e6e0;
+      --muted:    #777770;
+      --accent:   #c8a96e;
+      --accent2:  #8fbc8f;
+      --danger:   #c46a5a;
+      --chord:    #c8a96e;
+      --font-ui:  'DM Sans', sans-serif;
+      --font-mono:'DM Mono', monospace;
+      --radius:   10px;
+      --radius-sm:6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TELAS ── */
+    .tela { display: none; flex-direction: column; height: 100dvh; overflow: hidden; }
+    .tela.ativa { display: flex; }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 0.5px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .header-titulo {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+    }
+    .header-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    /* ── BOTÕES ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--bg3); border-color: var(--muted); }
+    .btn:active { opacity: 0.7; }
+    .btn-accent { background: var(--accent); border-color: var(--accent); color: #0f0f0f; font-weight: 500; }
+    .btn-accent:hover { background: #d4b87a; border-color: #d4b87a; }
+    .btn-icon { padding: 8px 10px; font-size: 16px; }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: #2a1a18; }
+
+    /* ── BUSCA ── */
+    .busca-wrap { padding: 12px 20px; flex-shrink: 0; }
+    .busca-input {
+      width: 100%;
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .busca-input:focus { border-color: var(--accent); }
+    .busca-input::placeholder { color: var(--muted); }
+
+    /* ── LISTA DE CIFRAS ── */
+    .lista-scroll { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+    .lista-vazia {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .lista-vazia .icone { font-size: 40px; opacity: 0.4; }
+    .lista-vazia p { font-size: 14px; line-height: 1.6; }
+
+    .cifra-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      gap: 12px;
+    }
+    .cifra-card:hover { border-color: var(--accent); background: #1c1c1c; }
+    .cifra-card-info { flex: 1; min-width: 0; }
+    .cifra-titulo {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cifra-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .cifra-tom {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+      background: #2a2318;
+      padding: 3px 9px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    /* ── MODAL DE NOVA CIFRA ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.aberto { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius) var(--radius) 0 0;
+      width: 100%;
+      max-width: 900px;
+      max-height: 92dvh;
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 0.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-titulo { font-size: 15px; font-weight: 500; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    /* ── CAMPOS ── */
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; letter-spacing: 0.03em; }
+    .campo-group { display: flex; flex-direction: column; }
+    .campo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .campo-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+    input[type=text], input[type=number], select, textarea {
+      background: var(--bg3);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── EDITOR DE CIFRA ── */
+    .editor-cifra {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      min-height: 200px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .editor-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    /* ── TELA DE VISUALIZAÇÃO ── */
+    #tela-cifra .header { background: var(--bg); }
+    .cifra-controles {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-bottom: 0.5px solid var(--border);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .controle-grupo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+    }
+    .controle-label { font-size: 11px; color: var(--muted); }
+    .controle-valor {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+      min-width: 28px;
+      text-align: center;
+    }
+    .btn-sm { padding: 4px 8px; font-size: 13px; }
+
+    /* ── RENDERIZAÇÃO DA CIFRA ── */
+    .cifra-corpo {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .cifra-render {
+      font-family: var(--font-mono);
+      line-height: 1;
+      white-space: pre;
+    }
+    .cifra-render.duas-colunas {
+      columns: 2;
+      column-gap: 40px;
+    }
+    .linha-acorde {
+      color: var(--chord);
+      font-weight: 500;
+      display: block;
+      white-space: pre;
+    }
+    .linha-letra {
+      color: var(--text);
+      font-weight: 300;
+      display: block;
+      margin-bottom: 4px;
+      white-space: pre;
+    }
+    .linha-secao {
+      color: var(--accent2);
+      font-size: 0.85em;
+      font-weight: 500;
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      white-space: pre;
+    }
+    .linha-vazia { display: block; height: 10px; }
+
+    /* ── MODO APRESENTAÇÃO ── */
+    body.modo-palco {
+      background: #000;
+    }
+    body.modo-palco #tela-cifra .header,
+    body.modo-palco .cifra-controles {
+      display: none !important;
+    }
+    body.modo-palco .cifra-corpo {
+      padding: 30px 40px;
+    }
+    body.modo-palco .cifra-render {
+      font-size: var(--fonte-palco, 18px);
+    }
+    .palco-overlay {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 50;
+    }
+    body.modo-palco .palco-overlay { display: flex; gap: 8px; }
+
+    /* ── ANOTAÇÕES ── */
+    .anotacoes-wrap {
+      padding: 12px 20px;
+      border-top: 0.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .anotacoes-texto {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg3);
+      border: 0.5px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      opacity: 0;
+      transition: all 0.2s;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── TABLET: duas colunas ── */
+    @media (min-width: 768px) {
+      .modal { border-radius: var(--radius); max-height: 85dvh; margin: auto; }
+      .modal-overlay { align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     TELA 1: LISTA DE CIFRAS
+══════════════════════════════════════════ -->
+<div class="tela ativa" id="tela-lista">
+  <div class="header">
+    <div>
+      <div class="header-titulo">CifraSet</div>
+      <div class="header-sub">seu repertório</div>
+    </div>
+    <button class="btn btn-accent" onclick="abrirModalNova()">+ Nova cifra</button>
+  </div>
+
+  <div class="busca-wrap">
+    <input class="busca-input" type="text" id="busca" placeholder="Buscar por título ou artista..." oninput="renderLista()" />
+  </div>
+
+  <div class="lista-scroll" id="lista-cifras">
+    <!-- preenchido por JS -->
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TELA 2: VISUALIZAÇÃO DA CIFRA
+══════════════════════════════════════════ -->
+<div class="tela" id="tela-cifra">
+  <div class="header">
+    <button class="btn btn-icon" onclick="voltarLista()">←</button>
+    <div style="flex:1;min-width:0">
+      <div id="cifra-titulo-view" style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="cifra-artista-view" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-icon" onclick="abrirEditar()" title="Editar">✏️</button>
+      <button class="btn btn-icon" onclick="ativarPalco()" title="Modo palco">🎸</button>
+    </div>
+  </div>
+
+  <div class="cifra-controles">
+    <!-- Tom -->
+    <div class="controle-grupo">
+      <span class="controle-label">Tom</span>
+      <button class="btn btn-sm" onclick="mudarTom(-1)">−</button>
+      <span class="controle-valor" id="ctrl-tom">—</span>
+      <button class="btn btn-sm" onclick="mudarTom(+1)">+</button>
+    </div>
+    <!-- Fonte -->
+    <div class="controle-grupo">
+      <span class="controle-label">Fonte</span>
+      <button class="btn btn-sm" onclick="mudarFonte(-1)">A−</button>
+      <span class="controle-valor" id="ctrl-fonte">16</span>
+      <button class="btn btn-sm" onclick="mudarFonte(+1)">A+</button>
+    </div>
+    <!-- Colunas -->
+    <div class="controle-grupo">
+      <span class="controle-label">Colunas</span>
+      <button class="btn btn-sm" id="btn-colunas" onclick="toggleColunas()">1</button>
+    </div>
+    <!-- Rolagem -->
+    <div class="controle-grupo">
+      <span class="controle-label">BPM</span>
+      <button class="btn btn-sm" onclick="mudarBpm(-5)">−</button>
+      <span class="controle-valor" id="ctrl-bpm">—</span>
+      <button class="btn btn-sm" onclick="mudarBpm(+5)">+</button>
+    </div>
+    <button class="btn btn-sm" id="btn-rolagem" onclick="toggleRolagem()">▶ Rolar</button>
+  </div>
+
+  <div class="cifra-corpo">
+    <div class="cifra-render" id="cifra-render"></div>
+  </div>
+
+  <div class="anotacoes-wrap" id="anotacoes-wrap" style="display:none">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">ANOTAÇÕES</div>
+    <div class="anotacoes-texto" id="anotacoes-texto"></div>
+  </div>
+</div>
+
+<!-- Overlay modo palco -->
+<div class="palco-overlay">
+  <button class="btn btn-sm" onclick="mudarFontePalco(-2)">A−</button>
+  <button class="btn btn-sm" onclick="mudarFontePalco(+2)">A+</button>
+  <button class="btn btn-sm" id="btn-rolagem-palco" onclick="toggleRolagem()">▶</button>
+  <button class="btn btn-sm btn-danger" onclick="sairPalco()">✕ Sair</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: NOVA / EDITAR CIFRA
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-titulo" id="modal-titulo-label">Nova cifra</span>
+      <button class="btn btn-icon" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="campo-row">
+        <div class="campo-grupo">
+          <label>Título da música</label>
+          <input type="text" id="campo-titulo" placeholder="Ex: Toda Forma de Amor" />
+        </div>
+        <div class="campo-grupo">
+          <label>Artista</label>
+          <input type="text" id="campo-artista" placeholder="Ex: Lulu Santos" />
+        </div>
+      </div>
+
+      <div class="campo-row-3">
+        <div class="campo-grupo">
+          <label>Tom original</label>
+          <select id="campo-tom">
+            <option value="">— selecione —</option>
+            <option>C</option><option>C#</option><option>Db</option>
+            <option>D</option><option>D#</option><option>Eb</option>
+            <option>E</option><option>F</option><option>F#</option>
+            <option>Gb</option><option>G</option><option>G#</option>
+            <option>Ab</option><option>A</option><option>A#</option>
+            <option>Bb</option><option>B</option>
+          </select>
+        </div>
+        <div class="campo-grupo">
+          <label>BPM</label>
+          <input type="number" id="campo-bpm" placeholder="Ex: 120" min="40" max="300" />
+        </div>
+        <div class="campo-grupo">
+          <label>Gênero</label>
+          <input type="text" id="campo-genero" placeholder="Ex: MPB" />
+        </div>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Cifra (cole ou escreva aqui)</label>
+        <textarea class="editor-cifra" id="campo-cifra" rows="14" placeholder="Cole a cifra aqui ou escreva do zero.
+Linhas só com acordes (Am, G7, F...) serão destacadas em dourado.
+Linhas de letra ficam em branco.
+Seções como [Verso], [Refrão] ficam em verde.
+
+Exemplo:
+[Verso]
+Am        G
+Trecho da letra da música
+F         C
+Continua a letra aqui"></textarea>
+        <div class="editor-hint">Linhas com apenas acordes são detectadas automaticamente. Seções entre [ ] ficam destacadas.</div>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Anotações (opcional)</label>
+        <textarea id="campo-anotacoes" rows="3" placeholder="Observações de arranjo, capotraste, dicas de execução..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-deletar" onclick="deletarCifra()" style="display:none;margin-right:auto">Excluir cifra</button>
+      <button class="btn" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="salvarCifra()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// DADOS
+// ══════════════════════════════════════════
+let cifras = JSON.parse(localStorage.getItem('cifraset_cifras') || '[]');
+let cifraAtual = null;
+let editandoId = null;
+let fonteAtual = 16;
+let fontePalco = 18;
+let duasColunas = false;
+let bpmAtual = 120;
+let rolandoInterval = null;
+let tomDeslocamento = 0;
+
+function salvarDados() {
+  localStorage.setItem('cifraset_cifras', JSON.stringify(cifras));
+}
+
+// ══════════════════════════════════════════
+// NOTAS E TRANSPOSIÇÃO
+// ══════════════════════════════════════════
+const NOTAS_S  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTAS_B  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const REGEX_ACORDE = /\b([A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add)?(?:2|4|5|6|7|9|11|13)?(?:maj7|maj9|m7|m9|7sus4|sus4|sus2|dim7|aug7)?)\b/g;
+
+function indexNota(nota) {
+  let i = NOTAS_S.indexOf(nota);
+  if (i === -1) i = NOTAS_B.indexOf(nota);
+  return i;
+}
+
+function transporNota(nota, delta) {
+  const i = indexNota(nota);
+  if (i === -1) return nota;
+  const novo = ((i + delta) % 12 + 12) % 12;
+  return NOTAS_S[novo];
+}
+
+function transporAcorde(acorde, delta) {
+  return acorde.replace(/^([A-G](?:#|b)?)/, (match) => transporNota(match, delta));
+}
+
+function transporLinha(linha, delta) {
+  if (delta === 0) return linha;
+  return linha.replace(REGEX_ACORDE, (m) => transporAcorde(m, delta));
+}
+
+function calcularTomAtual() {
+  const tom = cifraAtual?.tom || '';
+  if (!tom) return '—';
+  const idx = indexNota(tom);
+  if (idx === -1) return tom;
+  const novo = ((idx + tomDeslocamento) % 12 + 12) % 12;
+  return NOTAS_S[novo];
+}
+
+// ══════════════════════════════════════════
+// DETECÇÃO DE LINHA
+// ══════════════════════════════════════════
+function ehLinhaAcorde(linha) {
+  const l = linha.trim();
+  if (!l) return false;
+  // Seção não é acorde
+  if (l.startsWith('[') && l.endsWith(']')) return false;
+  // Remove todos os acordes e espaços — se sobrar só espaço/traço, é linha de acorde
+  const semAcordes = l.replace(REGEX_ACORDE, '').replace(/[\s\-|\/]+/g, '');
+  return semAcordes.length === 0 && REGEX_ACORDE.test(l);
+}
+
+function ehSecao(linha) {
+  const l = linha.trim();
+  return l.startsWith('[') && l.endsWith(']');
+}
+
+// ══════════════════════════════════════════
+// RENDERIZAÇÃO
+// ══════════════════════════════════════════
+function renderizarCifra(texto, delta) {
+  const linhas = texto.split('\n');
+  let html = '';
+  for (let linha of linhas) {
+    if (!linha.trim()) {
+      html += '<span class="linha-vazia"></span>';
+    } else if (ehSecao(linha)) {
+      html += `<span class="linha-secao">${escHtml(linha)}</span>`;
+    } else if (ehLinhaAcorde(linha)) {
+      const transposta = transporLinha(linha, delta);
+      html += `<span class="linha-acorde">${escHtml(transposta)}</span>`;
+    } else {
+      html += `<span class="linha-letra">${escHtml(linha)}</span>`;
+    }
+  }
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════
+// LISTA
+// ══════════════════════════════════════════
+function renderLista() {
+  const q = document.getElementById('busca').value.toLowerCase();
+  const lista = document.getElementById('lista-cifras');
+  const filtradas = cifras.filter(c =>
+    c.titulo.toLowerCase().includes(q) ||
+    (c.artista || '').toLowerCase().includes(q)
+  );
+
+  if (filtradas.length === 0) {
+    lista.innerHTML = `<div class="lista-vazia">
+      <div class="icone">𝄞</div>
+      <p>${cifras.length === 0
+        ? 'Nenhuma cifra ainda.<br>Clique em <strong>+ Nova cifra</strong> para começar.'
+        : 'Nenhuma cifra encontrada.'}
+      </p>
+    </div>`;
+    return;
+  }
+
+  lista.innerHTML = filtradas.map(c => `
+    <div class="cifra-card" onclick="abrirCifra('${c.id}')">
+      <div class="cifra-card-info">
+        <div class="cifra-titulo">${escHtml(c.titulo)}</div>
+        <div class="cifra-meta">${escHtml(c.artista || '—')}${c.genero ? ' · ' + escHtml(c.genero) : ''}</div>
+      </div>
+      ${c.tom ? `<span class="cifra-tom">${escHtml(c.tom)}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+// ABRIR CIFRA
+// ══════════════════════════════════════════
+function abrirCifra(id) {
+  cifraAtual = cifras.find(c => c.id === id);
+  if (!cifraAtual) return;
+  tomDeslocamento = 0;
+  fonteAtual = cifraAtual.fonte || 16;
+  bpmAtual = cifraAtual.bpm || 120;
+  duasColunas = false;
+  pararRolagem();
+  atualizarViewCifra();
+  mostrarTela('tela-cifra');
+}
+
+function atualizarViewCifra() {
+  document.getElementById('cifra-titulo-view').textContent = cifraAtual.titulo;
+  document.getElementById('cifra-artista-view').textContent = cifraAtual.artista || '';
+  document.getElementById('ctrl-tom').textContent = calcularTomAtual();
+  document.getElementById('ctrl-fonte').textContent = fonteAtual;
+  document.getElementById('ctrl-bpm').textContent = bpmAtual;
+
+  const render = document.getElementById('cifra-render');
+  render.style.fontSize = fonteAtual + 'px';
+  render.innerHTML = renderizarCifra(cifraAtual.cifra || '', tomDeslocamento);
+  render.className = 'cifra-render' + (duasColunas ? ' duas-colunas' : '');
+  document.getElementById('btn-colunas').textContent = duasColunas ? '2' : '1';
+
+  const anot = cifraAtual.anotacoes || '';
+  const anotWrap = document.getElementById('anotacoes-wrap');
+  if (anot.trim()) {
+    document.getElementById('anotacoes-texto').textContent = anot;
+    anotWrap.style.display = 'block';
+  } else {
+    anotWrap.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════
+// CONTROLES DE VISUALIZAÇÃO
+// ══════════════════════════════════════════
+function mudarTom(delta) {
+  tomDeslocamento += delta;
+  atualizarViewCifra();
+}
+
+function mudarFonte(delta) {
+  fonteAtual = Math.max(10, Math.min(32, fonteAtual + delta));
+  if (cifraAtual) { cifraAtual.fonte = fonteAtual; salvarDados(); }
+  atualizarViewCifra();
+}
+
+function mudarFontePalco(delta) {
+  fontePalco = Math.max(12, Math.min(48, fontePalco + delta));
+  document.documentElement.style.setProperty('--fonte-palco', fontePalco + 'px');
+}
+
+function toggleColunas() {
+  duasColunas = !duasColunas;
+  atualizarViewCifra();
+}
+
+function mudarBpm(delta) {
+  bpmAtual = Math.max(40, Math.min(300, bpmAtual + delta));
+  if (cifraAtual) { cifraAtual.bpm = bpmAtual; salvarDados(); }
+  document.getElementById('ctrl-bpm').textContent = bpmAtual;
+  if (rolandoInterval) { pararRolagem(); iniciarRolagem(); }
+}
+
+function toggleRolagem() {
+  if (rolandoInterval) { pararRolagem(); } else { iniciarRolagem(); }
+}
+
+function iniciarRolagem() {
+  const corpo = document.querySelector('.cifra-corpo');
+  // px por segundo baseado no BPM — ajuste fino empírico
+  const pxPorSeg = bpmAtual * 0.4;
+  const intervalo = 50;
+  rolandoInterval = setInterval(() => {
+    corpo.scrollTop += pxPorSeg * (intervalo / 1000);
+  }, intervalo);
+  document.getElementById('btn-rolagem').textContent = '⏸ Parar';
+  document.getElementById('btn-rolagem-palco').textContent = '⏸';
+}
+
+function pararRolagem() {
+  clearInterval(rolandoInterval);
+  rolandoInterval = null;
+  document.getElementById('btn-rolagem').textContent = '▶ Rolar';
+  document.getElementById('btn-rolagem-palco').textContent = '▶';
+}
+
+// ══════════════════════════════════════════
+// MODO PALCO
+// ══════════════════════════════════════════
+function ativarPalco() {
+  fontePalco = fonteAtual + 2;
+  document.documentElement.style.setProperty('--fonte-palco', fontePalco + 'px');
+  document.body.classList.add('modo-palco');
+  document.querySelector('.cifra-corpo').scrollTop = 0;
+}
+
+function sairPalco() {
+  document.body.classList.remove('modo-palco');
+  pararRolagem();
+}
+
+// ══════════════════════════════════════════
+// MODAL NOVA / EDITAR CIFRA
+// ══════════════════════════════════════════
+function abrirModalNova() {
+  editandoId = null;
+  document.getElementById('modal-titulo-label').textContent = 'Nova cifra';
+  document.getElementById('btn-deletar').style.display = 'none';
+  limparModal();
+  document.getElementById('modal-overlay').classList.add('aberto');
+}
+
+function abrirEditar() {
+  if (!cifraAtual) return;
+  editandoId = cifraAtual.id;
+  document.getElementById('modal-titulo-label').textContent = 'Editar cifra';
+  document.getElementById('btn-deletar').style.display = 'inline-flex';
+  document.getElementById('campo-titulo').value = cifraAtual.titulo || '';
+  document.getElementById('campo-artista').value = cifraAtual.artista || '';
+  document.getElementById('campo-tom').value = cifraAtual.tom || '';
+  document.getElementById('campo-bpm').value = cifraAtual.bpm || '';
+  document.getElementById('campo-genero').value = cifraAtual.genero || '';
+  document.getElementById('campo-cifra').value = cifraAtual.cifra || '';
+  document.getElementById('campo-anotacoes').value = cifraAtual.anotacoes || '';
+  document.getElementById('modal-overlay').classList.add('aberto');
+}
+
+function fecharModal() {
+  document.getElementById('modal-overlay').classList.remove('aberto');
+}
+
+function limparModal() {
+  ['campo-titulo','campo-artista','campo-bpm','campo-genero','campo-cifra','campo-anotacoes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('campo-tom').value = '';
+}
+
+function salvarCifra() {
+  const titulo = document.getElementById('campo-titulo').value.trim();
+  if (!titulo) { toast('Digite o título da música'); return; }
+
+  const dados = {
+    titulo,
+    artista:    document.getElementById('campo-artista').value.trim(),
+    tom:        document.getElementById('campo-tom').value,
+    bpm:        parseInt(document.getElementById('campo-bpm').value) || 120,
+    genero:     document.getElementById('campo-genero').value.trim(),
+    cifra:      document.getElementById('campo-cifra').value,
+    anotacoes:  document.getElementById('campo-anotacoes').value.trim(),
+  };
+
+  if (editandoId) {
+    const idx = cifras.findIndex(c => c.id === editandoId);
+    if (idx !== -1) {
+      cifras[idx] = { ...cifras[idx], ...dados };
+      cifraAtual = cifras[idx];
+    }
+  } else {
+    const nova = { id: Date.now().toString(), fonte: 16, ...dados };
+    cifras.unshift(nova);
+    cifraAtual = nova;
+  }
+
+  salvarDados();
+  fecharModal();
+  renderLista();
+  toast(editandoId ? 'Cifra atualizada!' : 'Cifra salva!');
+
+  if (editandoId) {
+    tomDeslocamento = 0;
+    fonteAtual = cifraAtual.fonte || 16;
+    bpmAtual = cifraAtual.bpm || 120;
+    atualizarViewCifra();
+    mostrarTela('tela-cifra');
+  }
+}
+
+function deletarCifra() {
+  if (!editandoId) return;
+  if (!confirm('Tem certeza que quer excluir esta cifra?')) return;
+  cifras = cifras.filter(c => c.id !== editandoId);
+  salvarDados();
+  fecharModal();
+  voltarLista();
+  toast('Cifra excluída.');
+}
+
+// ══════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════
+function mostrarTela(id) {
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+  document.getElementById(id).classList.add('ativa');
+}
+
+function voltarLista() {
+  pararRolagem();
+  sairPalco();
+  cifraAtual = null;
+  renderLista();
+  mostrarTela('tela-lista');
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visivel');
+  setTimeout(() => el.classList.remove('visivel'), 2500);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+renderLista();
+</script>
+</body>
+</html>
