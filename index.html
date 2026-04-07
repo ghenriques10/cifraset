@@ -338,9 +338,45 @@
       display: block;
       break-inside: avoid;
       page-break-inside: avoid;
-    }
-    .bloco-par .linha-letra {
       margin-bottom: 4px;
+    }
+    /* Sistema inline: acorde fica em cima da sílaba */
+    .linha-inline {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      line-height: 1;
+      margin-bottom: 4px;
+      width: 100%;
+    }
+    .acorde-inline {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .acorde-topo {
+      font-family: var(--font-mono);
+      color: var(--chord);
+      font-weight: 500;
+      font-size: 0.85em;
+      line-height: 1.4;
+      white-space: pre;
+      padding-right: 4px;
+    }
+    .acorde-letra {
+      font-family: var(--font-mono);
+      color: var(--text);
+      font-weight: 300;
+      white-space: pre;
+      line-height: 1.6;
+    }
+    .acorde-letra-pura {
+      font-family: var(--font-mono);
+      color: var(--text);
+      font-weight: 300;
+      white-space: pre;
+      line-height: 1.6;
+      align-self: flex-end;
     }
     .linha-secao {
       color: var(--accent2);
@@ -755,7 +791,7 @@ function ehSecao(linha) {
 }
 
 // ══════════════════════════════════════════
-// RENDERIZAÇÃO
+// RENDERIZAÇÃO — acordes inline sobre sílabas
 // ══════════════════════════════════════════
 function renderizarCifra(texto, delta) {
   const linhas = texto.split('\n');
@@ -770,14 +806,14 @@ function renderizarCifra(texto, delta) {
       html += `<span class="linha-secao">${escHtml(linha)}</span>`;
       i++;
     } else if (ehLinhaAcorde(linha)) {
-      const transposta = transporLinha(linha, delta);
-      const proxima = linhas[i + 1];
-      // Agrupa acorde+letra num bloco que não quebra entre colunas
-      if (proxima !== undefined && proxima.trim() !== '' && !ehLinhaAcorde(proxima) && !ehSecao(proxima)) {
-        html += `<span class="bloco-par"><span class="linha-acorde">${escHtml(transposta)}</span><span class="linha-letra">${escHtml(proxima)}</span></span>`;
+      const linhaAcorde = linha;
+      const linhaLetra = (linhas[i+1] !== undefined && !ehLinhaAcorde(linhas[i+1]) && !ehSecao(linhas[i+1])) ? linhas[i+1] : null;
+      if (linhaLetra !== null) {
+        html += `<span class="bloco-par">${renderInline(linhaAcorde, linhaLetra, delta)}</span>`;
         i += 2;
       } else {
-        html += `<span class="linha-acorde">${escHtml(transposta)}</span>`;
+        // Acorde sem letra embaixo — renderiza só os acordes em linha
+        html += `<span class="linha-acorde">${escHtml(transporLinha(linhaAcorde, delta))}</span>`;
         i++;
       }
     } else {
@@ -786,6 +822,48 @@ function renderizarCifra(texto, delta) {
     }
   }
   return html;
+}
+
+// Monta um parágrafo inline onde cada acorde fica em ruby acima da sílaba correspondente
+function renderInline(linhaAcorde, linhaLetra, delta) {
+  // Extrai acordes e suas posições de coluna na linha de acorde
+  const TESTE_AC = /[A-G](?:#|b)?(?:m(?:aj)?|maj|dim|aug|sus|add)?(?:\d{0,2})?(?:\/[A-G](?:#|b)?)?[°ø]?/g;
+  const acordes = []; // { pos, texto }
+  let m;
+  while ((m = TESTE_AC.exec(linhaAcorde)) !== null) {
+    const txt = transporAcorde(m[0], delta);
+    acordes.push({ pos: m.index, texto: txt });
+  }
+
+  if (acordes.length === 0) {
+    return `<span class="linha-letra">${escHtml(linhaLetra)}</span>`;
+  }
+
+  // Divide a letra em segmentos: cada segmento vai do pos do acorde atual até o próximo
+  let resultado = '<span class="linha-inline">';
+  for (let k = 0; k < acordes.length; k++) {
+    const posInicio = acordes[k].pos;
+    const posFim = acordes[k + 1] ? acordes[k + 1].pos : undefined;
+    // Trecho da letra correspondente a este acorde
+    const trecho = posFim !== undefined
+      ? linhaLetra.slice(posInicio, posFim)
+      : linhaLetra.slice(posInicio);
+    const trechoFinal = trecho || '\u00A0'; // espaço não-quebrável se vazio
+
+    resultado += `<span class="acorde-inline">` +
+      `<span class="acorde-topo">${escHtml(acordes[k].texto)}</span>` +
+      `<span class="acorde-letra">${escHtml(trechoFinal)}</span>` +
+      `</span>`;
+  }
+  // Se a letra começa antes do primeiro acorde, adiciona o trecho inicial sem acorde
+  if (acordes[0].pos > 0) {
+    const prefixo = linhaLetra.slice(0, acordes[0].pos);
+    resultado = '<span class="linha-inline">' +
+      `<span class="acorde-letra-pura">${escHtml(prefixo)}</span>` +
+      resultado.slice('<span class="linha-inline">'.length);
+  }
+  resultado += '</span>';
+  return resultado;
 }
 
 function escHtml(s) {
