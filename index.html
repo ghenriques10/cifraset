@@ -330,9 +330,8 @@
       font-weight: 300;
       display: block;
       margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     /* Bloco acorde+letra que nunca quebra entre colunas */
     .bloco-par {
@@ -615,12 +614,22 @@
           <label>Tom original</label>
           <select id="campo-tom">
             <option value="">— selecione —</option>
-            <option>C</option><option>C#</option><option>Db</option>
-            <option>D</option><option>D#</option><option>Eb</option>
-            <option>E</option><option>F</option><option>F#</option>
-            <option>Gb</option><option>G</option><option>G#</option>
-            <option>Ab</option><option>A</option><option>A#</option>
-            <option>Bb</option><option>B</option>
+            <optgroup label="Tons maiores">
+              <option>C</option><option>C#</option><option>Db</option>
+              <option>D</option><option>D#</option><option>Eb</option>
+              <option>E</option><option>F</option><option>F#</option>
+              <option>Gb</option><option>G</option><option>G#</option>
+              <option>Ab</option><option>A</option><option>A#</option>
+              <option>Bb</option><option>B</option>
+            </optgroup>
+            <optgroup label="Tons menores">
+              <option>Cm</option><option>C#m</option><option>Dbm</option>
+              <option>Dm</option><option>D#m</option><option>Ebm</option>
+              <option>Em</option><option>Fm</option><option>F#m</option>
+              <option>Gbm</option><option>Gm</option><option>G#m</option>
+              <option>Abm</option><option>Am</option><option>A#m</option>
+              <option>Bbm</option><option>Bm</option>
+            </optgroup>
           </select>
         </div>
         <div class="campo-grupo">
@@ -716,10 +725,14 @@ function transporLinha(linha, delta) {
 function calcularTomAtual() {
   const tom = cifraAtual?.tom || '';
   if (!tom) return '—';
-  const idx = indexNota(tom);
+  // Separa a nota base do sufixo (ex: "Am" → nota "A", sufixo "m")
+  const match = tom.match(/^([A-G](?:#|b)?)(m?)$/);
+  if (!match) return tom;
+  const nota = match[1], sufixo = match[2];
+  const idx = indexNota(nota);
   if (idx === -1) return tom;
   const novo = ((idx + tomDeslocamento) % 12 + 12) % 12;
-  return NOTAS_S[novo];
+  return NOTAS_S[novo] + sufixo;
 }
 
 // ══════════════════════════════════════════
